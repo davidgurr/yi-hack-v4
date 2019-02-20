@@ -40,6 +40,10 @@ if [[ $(get_config DROPBEAR) == "yes" ]] ; then
     dropbear -R
 fi
 
+if [[ $(get_config MQTTALARM) == "yes" ]] ; then
+    mqttalarm $(get_config MQTTALARMOPTS) 2>&1 >/dev/null &
+fi
+
 # First run on startup, then every hour via crond
 $YI_HACK_PREFIX/script/check_update.sh
 
