@@ -1,0 +1,10 @@
+#!/bin/bash
+
+SCRIPT_DIR=$(cd `dirname $0` && pwd)
+cd $SCRIPT_DIR
+
+cd mosquitto/mqttalarm
+
+make static_alarm
+make install || exit 1
+

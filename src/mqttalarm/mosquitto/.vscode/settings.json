@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "wireless.h": "c",
+        "signal.h": "c",
+        "stdio.h": "c",
+        "stdlib.h": "c",
+        "stddef.h": "c",
+        "stdint.h": "c"
+    }
+}
