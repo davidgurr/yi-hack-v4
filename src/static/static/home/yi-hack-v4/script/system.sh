@@ -41,7 +41,7 @@ if [[ $(get_config DROPBEAR) == "yes" ]] ; then
 fi
 
 if [[ $(get_config MQTTALARM) == "yes" ]] ; then
-    mqttalarm $(get_config MQTTALARMOPTS) 2>&1 >/dev/null &
+    mqttalarm -D $(get_config MQTTOPTS)
 fi
 
 # First run on startup, then every hour via crond
