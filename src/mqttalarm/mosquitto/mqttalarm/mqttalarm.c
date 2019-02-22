@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <signal.h>
+#include <errno.h>
 #include <mosquitto.h>
 
 bool debug = false;
@@ -70,6 +71,7 @@ int publishSignalInfo(struct mosquitto *mosq, char *wifi_topic){
 		}
     }
 
+	free (req.u.data.pointer);
     close(sockfd);
 
 	return(retval);
@@ -117,7 +119,8 @@ void my_connect_callback(struct mosquitto *mosq, void *userdata, int result)
 
 	Options are:
 
-	-d (optonal - debugging messages)
+	-D run as a daemon
+	-d (optional - debugging messages - not with -D)
 	-h <host>
 	-t <alarm topic>
 	-m <alarm message>
@@ -132,6 +135,7 @@ void my_connect_callback(struct mosquitto *mosq, void *userdata, int result)
 
 int main(int argc, char *argv[])
 {
+	bool daemonize = false;
 	char *host = NULL;
 	int port = 1883;
 	int keepalive = 60;
@@ -151,7 +155,7 @@ int main(int argc, char *argv[])
             {0,         0,                 0,  0 }
         };
 
-        c = getopt_long(argc, argv, "dh:t:m:l:n:f:w:p:k:c:",
+        c = getopt_long(argc, argv, "Ddh:t:m:l:n:f:w:p:k:c:",
                  long_options, &option_index);
         if (c == -1)
             break;
@@ -166,12 +170,16 @@ int main(int argc, char *argv[])
           printf ("\n");
           break;
 
-		case 'd':
-			debug = true;
-			break;
+	case 'D':
+	    daemonize = true;
+	    break;
+
+	case 'd':
+	    debug = true;
+	    break;
 
         case 'h':
-	   		host = optarg;
+	    host = optarg;
             break;
 
         case 't':
@@ -207,8 +215,8 @@ int main(int argc, char *argv[])
             break;
 
 		case 'c':
-			capture_path = optarg;
-			break;
+		    capture_path = optarg;
+		    break;
 
         case '?':
             break;
@@ -217,6 +225,11 @@ int main(int argc, char *argv[])
             abort();
         }
     }
+
+	if (debug && daemonize) {
+		fprintf(stderr, "Can't run as daemon with debug output\n");
+		abort();
+	}
 
 	if (debug) {
 		fprintf(stderr, "host: %s, port %d, keepalive %d\n", host, port, keepalive);
@@ -235,11 +248,33 @@ int main(int argc, char *argv[])
 		abort();
 	}
 
+	if (daemonize)	daemon (0, 0);
+
+	/* Wait 15s for network */
+	{
+		int nettimeout;
+ 	    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+		struct ifreq ifr = {.ifr_name = "wlan0"};
+
+		for (nettimeout = 0; nettimeout < 15; nettimeout++){
+			if (ioctl(sockfd, SIOCGIFADDR, &ifr) == 0){
+				break;
+			}
+
+			sleep(1);
+		}
+
+		if (nettimeout == 15) {
+			fprintf(stderr, "Timed out waiting for network");
+			return 1;
+		}
+
+	}
 	/* That's all the option handling out of the way ... main functionality in the following code block */
 	{
 		FILE *fp;
 		struct mosquitto *mosq = NULL;
-
+	
 		options.lwt_topic = lwt_topic;
 		options.lwt_online = lwt_online;
 		options.lwt_offline = lwt_offline;
@@ -266,7 +301,7 @@ int main(int argc, char *argv[])
 			}
 
 		if(mosquitto_connect(mosq, host, port, keepalive)){
-			fprintf(stderr, "Unable to connect.\n");
+			fprintf(stderr, "Unable to connect: %s\n", strerror(errno));
 			return 1;
 		}
 
